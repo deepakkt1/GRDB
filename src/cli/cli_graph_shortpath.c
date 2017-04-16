@@ -32,9 +32,7 @@ cli_graph_shortpath(char *cmdline, int *pos)
 	vertex_t s,d;
 	vertexid_t id1,id2;
 	attribute_t attribute;
-	printf("work1");
 	id1 = (vertexid_t) atoi(s1);
-	printf("work2");
 	id2 = (vertexid_t) atoi(s2);
 	s = graph_find_vertex_by_id(current, id1);
 	d = graph_find_vertex_by_id(current, id2);
@@ -43,30 +41,42 @@ cli_graph_shortpath(char *cmdline, int *pos)
 		return;
 	}
 	edge_t e;
+	int f=0;
 //	assert (current != NULL);
 	for (e = current->e; e != NULL; e = e->next)
+		{
 		if (e->id1 == id1){
+			edge_t temp = e;
 			while(e != NULL)
 			{
-			//edge_print(e);
-			attribute_t attr;
-			int i, offset, val;
-			float fval;
-			double dval;
-			tuple_t t;
-			t=e->tuple;
-			tuple_print_attr(t, current->el,s3);
-			attr = schema_find_attr_by_name(t->s, s3);
-			if (attr == NULL) {
-				printf("Attribute %s not found\n", s2);
-				return;
+				//edge_print(e);
+				attribute_t attr;
+				int i, offset, val;
+				float fval;
+				double dval;
+				tuple_t t;
+				t=e->tuple;
+				tuple_print_attr(t, current->el,s3);
+				attr = schema_find_attr_by_name(t->s, s3);
+				if (attr == NULL) {
+					printf("Attribute %s not found\n", s2);
+					return;
+				}
+				if(e->id2 == id2){
+					if(temp->next!=NULL){
+						e=temp->next;f=1;
+						break; }
+					else{ 	
+					break;}
+				}
+				e = e -> next;
 			}
-			if(e->id2 == id2)
-				break;
-			e = e -> next;
-			}
-				break;
-			}
+				if(f==1){f=0;
+					continue;}
+				else
+					break;
+		   }
+		}
 
 }
 
@@ -89,9 +99,9 @@ tuple_print_attr(tuple_t t, enum_list_t el, char* atr)
 		if (offset >= 0) {
 			switch (attr->bt) {
 			case INTEGER:
-				printf("%s",attr->name);
+				printf("%s attribute name\n",attr->name);
 				i = tuple_get_int(t->buf + offset);
-				printf("%d", i);
+				printf("%d tuple value \n", i);
 				break;
 			}
 		}
