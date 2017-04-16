@@ -2,6 +2,8 @@
 
 grdb is a graph database being developed at the University of Colorado.
 
-__Contact__
+Used heap for implementing SSSP algorithm
 
-frank.miller@colorado.edu
+References:
+https://rosettacode.org/wiki/Dijkstra%27s_algorithm#C
+
