@@ -7,17 +7,42 @@
 #include <assert.h>
 #include "enum.h"
 #include "tuple.h"
-
-void tuple_print_attr(tuple_t t, enum_list_t el, char * atr);
+#include <limits.h>
+int tuple_print_attr(tuple_t t, enum_list_t el, char * atr);
+typedef struct {
+    int vertex;
+    int weight;
+} edge_dij;
+ 
+typedef struct {
+    edge_dij **edges;
+    int edges_len;
+    int edges_size;
+    int dist;
+    int prev;
+    int visited;
+} vertex_dij;
+ 
+typedef struct {
+    vertex_dij **vertices;
+    int vertices_len;
+    int vertices_size;
+} graph_dij;
+ 
+typedef struct {
+    int *data;
+    int *prio;
+    int *index;
+    int len;
+    int size;
+} heap_t;
+ 
 
 void
 cli_graph_shortpath(char *cmdline, int *pos)
 {
 	printf("first shortest path algo"); //S1 is source, S2 is destination, S3 is attribute of schema on which SSSP is to be calculated 
 	char s1[BUFSIZE], s2[BUFSIZE], s3[BUFSIZE], s4[BUFSIZE];
-	schema_type_t st;
-	int i, n;
-	printf("%c %s %d",pos,pos,pos);
 	memset(s1, 0, BUFSIZE);
 	nextarg(cmdline, pos, " ", s1);
 	memset(s2, 0, BUFSIZE);
@@ -42,6 +67,7 @@ cli_graph_shortpath(char *cmdline, int *pos)
 	}
 	edge_t e;
 	int f=0;
+	graph_dij *g = calloc(1, sizeof (graph_dij));
 //	assert (current != NULL);
 	for (e = current->e; e != NULL; e = e->next)
 		{
@@ -51,13 +77,14 @@ cli_graph_shortpath(char *cmdline, int *pos)
 			{
 				//edge_print(e);
 				attribute_t attr;
-				int i, offset, val;
-				float fval;
-				double dval;
+				int wt;
 				tuple_t t;
 				t=e->tuple;
-				tuple_print_attr(t, current->el,s3);
+				printf(" here\n");
+				wt=tuple_print_attr(t, current->el,s3);
 				attr = schema_find_attr_by_name(t->s, s3);
+				printf("%d here \n",wt);
+				add_edge_dij(g, e->id1, e->id2, wt);
 				if (attr == NULL) {
 					printf("Attribute %s not found\n", s2);
 					return;
@@ -76,11 +103,18 @@ cli_graph_shortpath(char *cmdline, int *pos)
 				else
 					break;
 		   }
+
 		}
+printf("\n %d graph len before\n",g->vertices_len);
+printf("\n %d graph len in\n",g->vertices[1]->edges_len);
+printf("\n %d graph len in\n",g->vertices[1]->edges_size);
+	dijkstra(g, id1, id2);
+	print_path(g, id2);
+
 
 }
 
-void
+int
 tuple_print_attr(tuple_t t, enum_list_t el, char* atr)
 {
 	attribute_t attr;
@@ -91,8 +125,8 @@ tuple_print_attr(tuple_t t, enum_list_t el, char* atr)
 	assert (t != NULL);
 	assert (t->buf != NULL);
 
-	printf("[");
-
+	//printf("[");
+	int reval=0;
 	for (attr = t->s->attrlist; attr != NULL; attr = attr->next) {
 		if(strcmp(attr->name,atr)==0){
 		offset = tuple_get_offset(t, attr->name);
@@ -102,6 +136,7 @@ tuple_print_attr(tuple_t t, enum_list_t el, char* atr)
 				printf("%s attribute name\n",attr->name);
 				i = tuple_get_int(t->buf + offset);
 				printf("%d tuple value \n", i);
+				reval=i;
 				break;
 			}
 		}
@@ -110,8 +145,157 @@ tuple_print_attr(tuple_t t, enum_list_t el, char* atr)
 			printf(",");
 
 	}
-	printf("]");
+	//printf("]");
+	return reval;
 }
+void add_vertex (graph_dij *g, int i) {
+    if (g->vertices_size < i + 1) {
+        int size = g->vertices_size * 2 > i ? g->vertices_size * 2 : i + 4;
+        g->vertices = realloc(g->vertices, size * sizeof (vertex_dij *));
+        for (int j = g->vertices_size; j < size; j++)
+            g->vertices[j] = NULL;
+        g->vertices_size = size;
+    }
+    if (!g->vertices[i]) {
+        g->vertices[i] = calloc(1, sizeof (vertex_dij));
+        g->vertices_len++;
+    }
+}
+ 
+void add_edge_dij(graph_dij *g, int a, int b, int w) {
+    //a = a - 'a';
+    //b = b - 'a';
+    printf("%d %d edges\n",a,b);
+    add_vertex(g, a);
+    add_vertex(g, b);
+    vertex_dij *v = g->vertices[a];
+    if (v->edges_len >= v->edges_size) {
+        v->edges_size = v->edges_size ? v->edges_size * 2 : 4;
+        v->edges = realloc(v->edges, v->edges_size * sizeof (edge_dij *));
+    }
+	
+    edge_dij *e = calloc(1, sizeof (edge_dij));
+    e->vertex = b;
+    e->weight = w;
+    v->edges[v->edges_len++] = e;
+
+}
+ 
+heap_t *create_heap (int n) {
+    heap_t *h = calloc(1, sizeof (heap_t));
+    h->data = calloc(n + 1, sizeof (int));
+    h->prio = calloc(n + 1, sizeof (int));
+    h->index = calloc(n, sizeof (int));
+    return h;
+}
+ 
+void push_heap (heap_t *h, int v, int p) {
+    int i = h->index[v] == 0 ? ++h->len : h->index[v];
+    int j = i / 2;
+    while (i > 1) {
+        if (h->prio[j] < p)
+            break;
+        h->data[i] = h->data[j];
+        h->prio[i] = h->prio[j];
+        h->index[h->data[i]] = i;
+        i = j;
+        j = j / 2;
+    }
+    h->data[i] = v;
+    h->prio[i] = p;
+    h->index[v] = i;
+}
+ 
+int min (heap_t *h, int i, int j, int k) {
+    int m = i;
+    if (j <= h->len && h->prio[j] < h->prio[m])
+        m = j;
+    if (k <= h->len && h->prio[k] < h->prio[m])
+        m = k;
+    return m;
+}
+ 
+int pop_heap (heap_t *h) {
+    int v = h->data[1];
+    int i = 1;
+    while (1) {
+        int j = min(h, h->len, 2 * i, 2 * i + 1);
+        if (j == h->len)
+            break;
+        h->data[i] = h->data[j];
+        h->prio[i] = h->prio[j];
+        h->index[h->data[i]] = i;
+        i = j;
+    }
+    h->data[i] = h->data[h->len];
+    h->prio[i] = h->prio[h->len];
+    h->index[h->data[i]] = i;
+    h->len--;
+    return v;
+}
+ 
+void dijkstra (graph_dij *g, int a, int b) {
+printf("%d - %d source destination\n",a,b);
+    int i, j;
+    //a = a - 'a';
+    //b = b - 'a';
+
+    for (i = 1; i <= g->vertices_len; i++) {
+        vertex_dij *v = g->vertices[i];
+        v->dist = INT_MAX;
+        v->prev = 0;
+        v->visited = 0;
+    }
+    vertex_dij *v = g->vertices[a];
+    v->dist = 0;
+    heap_t *h = create_heap(g->vertices_len);
+    push_heap(h, a, v->dist);
+    while (h->len) {
+	printf("here\n");
+        i = pop_heap(h);
+        if (i == b)
+            break;
+        v = g->vertices[i];
+        v->visited = 1;
+        for (j = 0; j < v->edges_len; j++) {
+            edge_dij *e = v->edges[j];
+            vertex_dij *u = g->vertices[e->vertex];
+            if (!u->visited && v->dist + e->weight <= u->dist) {
+                u->prev = i;
+                u->dist = v->dist + e->weight;
+                push_heap(h, e->vertex, u->dist);
+            }
+        }
+    }
+}
+ 
+void print_path (graph_dij *g, int i) {
+printf("destination - %d\n\n",i);
+    int n, j,k;
+    vertex_dij *v, *u;
+    //i = i - 'a';
+    v = g->vertices[i];
+    if (v->dist == INT_MAX) {
+        printf("no path\n");
+        return;
+    }
+    for (n = 1, u = v; u->dist; u = g->vertices[u->prev], n++);
+    int *path = malloc(n+1);
+//path[n+1]='\0';
+    path[n ] = i; //'a' + i;
+    for (j = 1, u = v; u->dist; u = g->vertices[u->prev], j++){
+//	printf("\n %d hinde at %d \n", u ->prev,n - j);
+        path[n - j] = u->prev; //'a' + u->prev;
+	}
+    printf("Shortest distance = %d \n Number of nodes = %d  \n", v->dist, n);
+int len=sizeof(path)/sizeof(path[0]);
+printf("\nPath\n");
+for(k=1;k<=len;k++)
+printf("%d ",path[k]);
+if(len!=1)
+printf("%d",path[n]);
+}
+ 
 /*
 			for (attr = t->s->attrlist; attr != NULL; attr = attr->next) {
 				offset = tuple_get_offset(t, attr->name);
