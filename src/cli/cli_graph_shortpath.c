@@ -8,7 +8,6 @@
 #include "enum.h"
 #include "tuple.h"
 #include <limits.h>
-int tuple_print_attr(tuple_t t, enum_list_t el, char * atr);
 typedef struct {
     int vertex;
     int weight;
@@ -37,11 +36,19 @@ typedef struct {
     int size;
 } heap_t;
  
+int tuple_print_attr(tuple_t t, enum_list_t el, char * atr);
+void print_path (graph_dij *g, int i);
+void add_vertex (graph_dij *g, int i);
+void add_edge_dij(graph_dij *g, int a, int b, int w);
+heap_t *create_heap (int n);
+void push_heap (heap_t *h, int v, int p);
+int min (heap_t *h, int i, int j, int k);
+int pop_heap (heap_t *h);
+void dijkstra (graph_dij *g, int a, int b);
 
 void
 cli_graph_shortpath(char *cmdline, int *pos)
 {
-	printf("first shortest path algo"); //S1 is source, S2 is destination, S3 is attribute of schema on which SSSP is to be calculated 
 	char s1[BUFSIZE], s2[BUFSIZE], s3[BUFSIZE], s4[BUFSIZE];
 	memset(s1, 0, BUFSIZE);
 	nextarg(cmdline, pos, " ", s1);
@@ -51,12 +58,11 @@ cli_graph_shortpath(char *cmdline, int *pos)
 	nextarg(cmdline, pos, " ", s3);
 	memset(s4, 0, BUFSIZE);
 	nextarg(cmdline, pos, " ", s4);
-//#if _DEBUG
+#if _DEBUG
 	printf("s1=[%s] s2=[%s] s3=[%s], s4=[%s]\n", s1, s2, s3, s4);
-//#endif
+#endif
 	vertex_t s,d;
 	vertexid_t id1,id2;
-	attribute_t attribute;
 	id1 = (vertexid_t) atoi(s1);
 	id2 = (vertexid_t) atoi(s2);
 	s = graph_find_vertex_by_id(current, id1);
@@ -80,10 +86,8 @@ cli_graph_shortpath(char *cmdline, int *pos)
 				int wt;
 				tuple_t t;
 				t=e->tuple;
-				printf(" here\n");
 				wt=tuple_print_attr(t, current->el,s3);
 				attr = schema_find_attr_by_name(t->s, s3);
-				printf("%d here \n",wt);
 				add_edge_dij(g, e->id1, e->id2, wt);
 				if (attr == NULL) {
 					printf("Attribute %s not found\n", s2);
@@ -105,9 +109,6 @@ cli_graph_shortpath(char *cmdline, int *pos)
 		   }
 
 		}
-printf("\n %d graph len before\n",g->vertices_len);
-printf("\n %d graph len in\n",g->vertices[1]->edges_len);
-printf("\n %d graph len in\n",g->vertices[1]->edges_size);
 	dijkstra(g, id1, id2);
 	print_path(g, id2);
 
@@ -118,14 +119,10 @@ int
 tuple_print_attr(tuple_t t, enum_list_t el, char* atr)
 {
 	attribute_t attr;
-	int i, offset, val;
-	float fval;
-	double dval;
-
+	int i, offset;
 	assert (t != NULL);
 	assert (t->buf != NULL);
 
-	//printf("[");
 	int reval=0;
 	for (attr = t->s->attrlist; attr != NULL; attr = attr->next) {
 		if(strcmp(attr->name,atr)==0){
@@ -133,19 +130,24 @@ tuple_print_attr(tuple_t t, enum_list_t el, char* atr)
 		if (offset >= 0) {
 			switch (attr->bt) {
 			case INTEGER:
-				printf("%s attribute name\n",attr->name);
 				i = tuple_get_int(t->buf + offset);
-				printf("%d tuple value \n", i);
 				reval=i;
 				break;
+			case CHARACTER:
+			case VARCHAR:
+			case BOOLEAN:
+			case ENUM:
+			case FLOAT:
+			case DOUBLE:
+			case DATE:
+			case TIME:
+			case BASE_TYPES_MAX:
+				printf("\nWeight type not supported to calculate shortest path\n");
 			}
 		}
 		}
-		if (attr->next != NULL)
-			printf(",");
-
+	
 	}
-	//printf("]");
 	return reval;
 }
 void add_vertex (graph_dij *g, int i) {
@@ -165,7 +167,6 @@ void add_vertex (graph_dij *g, int i) {
 void add_edge_dij(graph_dij *g, int a, int b, int w) {
     //a = a - 'a';
     //b = b - 'a';
-    printf("%d %d edges\n",a,b);
     add_vertex(g, a);
     add_vertex(g, b);
     vertex_dij *v = g->vertices[a];
@@ -235,7 +236,6 @@ int pop_heap (heap_t *h) {
 }
  
 void dijkstra (graph_dij *g, int a, int b) {
-printf("%d - %d source destination\n",a,b);
     int i, j;
     //a = a - 'a';
     //b = b - 'a';
@@ -251,8 +251,7 @@ printf("%d - %d source destination\n",a,b);
     heap_t *h = create_heap(g->vertices_len);
     push_heap(h, a, v->dist);
     while (h->len) {
-	printf("here\n");
-        i = pop_heap(h);
+	i = pop_heap(h);
         if (i == b)
             break;
         v = g->vertices[i];
@@ -270,7 +269,6 @@ printf("%d - %d source destination\n",a,b);
 }
  
 void print_path (graph_dij *g, int i) {
-printf("destination - %d\n\n",i);
     int n, j,k;
     vertex_dij *v, *u;
     //i = i - 'a';
@@ -281,32 +279,15 @@ printf("destination - %d\n\n",i);
     }
     for (n = 1, u = v; u->dist; u = g->vertices[u->prev], n++);
     int *path = malloc(n+1);
-//path[n+1]='\0';
     path[n ] = i; //'a' + i;
     for (j = 1, u = v; u->dist; u = g->vertices[u->prev], j++){
-//	printf("\n %d hinde at %d \n", u ->prev,n - j);
         path[n - j] = u->prev; //'a' + u->prev;
 	}
-    printf("Shortest distance = %d \n Number of nodes = %d  \n", v->dist, n);
+    printf("\nShortest distance = %d \nNumber of nodes = %d  \n", v->dist, n);
 int len=sizeof(path)/sizeof(path[0]);
 printf("\nPath\n");
-for(k=1;k<=len;k++)
+for(k=1;k<=n;k++)
 printf("%d ",path[k]);
-if(len!=1)
-printf("%d",path[n]);
+printf("\n");
 }
- 
-/*
-			for (attr = t->s->attrlist; attr != NULL; attr = attr->next) {
-				offset = tuple_get_offset(t, attr->name);
-				if (offset >= 0) {
-					//schema_attribute_print(attr);
-					i = tuple_get_int(t->buf + offset);
-					//printf("%d", i);									
-				}
-			}
 
-
-
-
-*/

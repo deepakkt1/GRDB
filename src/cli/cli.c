@@ -73,11 +73,9 @@ cli()
 
 		if (tty){
 			cmdline = readline(prompt);
-			printf("prompt");
 		}
 		else{
 			cmdline = readline("");
-			printf("empty");
 		}
 		if (cmdline == NULL)
 			continue;
