@@ -1,7 +1,4 @@
 # grdb
 
-grdb is a graph database being developed at the University of Colorado.
+grdb is a graph database being developed at the University of Colorado. This repository only adds Shortest path algorithm to the base version. 
 
-__Contact__
-
-frank.miller@colorado.edu
